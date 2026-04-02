@@ -1,0 +1,24 @@
+{
+  "name": "pctopc-server",
+  "version": "1.0.0",
+  "description": "A app using WebRTC to give remote computer access.",
+  "homepage": "https://github.com/bendover111222333444/pctopc-server#readme",
+  "bugs": {
+    "url": "https://github.com/bendover111222333444/pctopc-server/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bendover111222333444/pctopc-server.git"
+  },
+  "license": "MIT",
+  "author": "Bendover111222333444",
+  "type": "commonjs",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "electron": "^41.1.0"
+  }
+}

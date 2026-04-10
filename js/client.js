@@ -29,7 +29,7 @@ async function generateCreds() {
 
 }
 
-//generateCreds();
+generateCreds();
 
 let pConn = new RTCPeerConnection(config);
 
@@ -90,7 +90,7 @@ async function startCapture() {
 
                 } else if (data.type == "ICE") {
                     
-                    data.actualData.forEach(candidate => pConn.addIceCandidate(candidate))
+                    pConn.addIceCandidate(data.actualData)
 
                 }
 

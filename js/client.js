@@ -29,7 +29,7 @@ async function generateCreds() {
 
 }
 
-generateCreds();
+//generateCreds();
 
 let pConn = new RTCPeerConnection(config);
 

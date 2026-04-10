@@ -1,1 +1,2 @@
-this is the server thing for my new project if you see this and dont know what it is dont worry about it :)
+PC to pc is a software me bendover make it allows connection between two computers one with app running and one with a browser running.
+The app version wont work if you just download and open the index.html.

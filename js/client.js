@@ -5,7 +5,7 @@ const stopBtn = document.getElementById("stopBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
 const videoEle = document.getElementById("videoPlayer");
 
-const config = {
+let config = {
     iceServers: [
          { urls: "stun:stun.l.google.com:19302" },
     ]

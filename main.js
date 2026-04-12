@@ -64,7 +64,7 @@ app.whenReady().then(() => {
 
       if (info.inputType == "moveMouse") {
 
-        await mouse.setPosition(new Point(info.xPos, info.yPos));
+        await mouse.setPosition(new Point(Math.floor(info.xPos),Math.floor(info.yPos)));
 
       } else if (info.inputType == "click") {
 

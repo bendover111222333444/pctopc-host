@@ -13,7 +13,7 @@ let config = {
 
 async function generateCreds() {
 
-    const response = await fetch("https://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev/turn-creds") // this could break in the future if it becomes deprecated.
+    const response = await fetch("https://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev/turn-creds") // this could break in the future if it becomes deprecated and also dont use it just use there offical service its just because im poor and i dont have access to a offical credit card
     const creds = await response.json()
 
     config = {
@@ -29,9 +29,12 @@ async function generateCreds() {
 
 }
 
-generateCreds();
+(async () => {
 
-let pConn = new RTCPeerConnection(config);
+    await generateCreds();
+    pConn = new RTCPeerConnection(config);
+
+})();
 
 let started = false;
 let currentCapture;
@@ -82,8 +85,6 @@ async function startCapture() {
             const data = JSON.parse(msg.data);
 
             if (data) {
-
-                console.log("sent data")
 
                 ipcRenderer.send("input", data)
 
@@ -156,19 +157,21 @@ function toggleCapture(capture, toggle) {
 
 }
 
-function stopCapture() {
+async function stopCapture() {
     
     if (currentCapture) {
 
         if (pConn) {
 
             pConn.close();
+            pConn = null;
+
             pConn = new RTCPeerConnection(config)
 
         }
 
         currentCapture.getTracks().forEach(function(track){
-                
+            
             track.stop();
                     
         });

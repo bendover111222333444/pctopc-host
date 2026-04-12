@@ -35,6 +35,7 @@ let pConn = new RTCPeerConnection(config);
 
 let started = false;
 let currentCapture;
+let fps = 60;
 
 async function startCapture() {
 
@@ -73,6 +74,22 @@ async function startCapture() {
         };
 
         capture.getTracks().forEach(track => pConn.addTrack(track, capture))
+        
+        const inputChannel = pConn.createDataChannel("input")
+        
+        inputChannel.onmessage = msg => {
+            
+            const data = JSON.parse(msg.data);
+
+            if (data) {
+
+                console.log("sent data")
+
+                ipcRenderer.send("input", data)
+
+            }
+
+        }
 
         const offer = await pConn.createOffer();
         await pConn.setLocalDescription(offer);

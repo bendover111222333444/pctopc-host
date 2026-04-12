@@ -1,4 +1,9 @@
 {
+  "build": {
+    "asarUnpack": [
+      "**/node_modules/@nut-tree/**"
+    ]
+  },
   "name": "pctopc-server",
   "version": "1.0.0",
   "description": "A app using WebRTC to give remote computer access.",
@@ -20,5 +25,8 @@
   },
   "devDependencies": {
     "electron": "^41.1.0"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6"
   }
 }

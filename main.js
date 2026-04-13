@@ -1,5 +1,5 @@
 const { app, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
-const { mouse, keyboard, straightTo, Point, Button} = require('@nut-tree-fork/nut-js')
+const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
 
 mouse.config.autoDelayMs = 0;
 
@@ -22,6 +22,47 @@ const createWindow = () => {
 
 }
 
+function toNutKey(eventKey) {
+  
+  if (eventKey.length === 1) return eventKey;
+
+  const map = {
+
+    "Control":     Key.LeftControl,
+    "Alt":         Key.LeftAlt,
+    "Shift":       Key.LeftShift,
+    "Meta":        Key.LeftSuper,
+    "Enter":       Key.Enter,
+    "Tab":         Key.Tab,
+    "Escape":      Key.Escape,
+    "Backspace":   Key.Backspace,
+    "Delete":      Key.Delete,
+    "Home":        Key.Home,
+    "End":         Key.End,
+    "PageUp":      Key.PageUp,
+    "PageDown":    Key.PageDown,
+    " ":           Key.Space,
+    "ArrowUp":     Key.Up,
+    "ArrowDown":   Key.Down,
+    "ArrowLeft":   Key.Left,
+    "ArrowRight":  Key.Right,
+    "CapsLock":    Key.CapsLock,
+    "Insert":      Key.Insert,
+    "PrintScreen": Key.Print,
+    "ScrollLock":  Key.ScrollLock,
+    "Pause":       Key.Pause,
+    "NumLock":     Key.NumLock,
+
+    "F1":  Key.F1,  "F2":  Key.F2,  "F3":  Key.F3,  "F4":  Key.F4,
+    "F5":  Key.F5,  "F6":  Key.F6,  "F7":  Key.F7,  "F8":  Key.F8,
+    "F9":  Key.F9,  "F10": Key.F10, "F11": Key.F11, "F12": Key.F12,
+  
+  };
+
+  return map[eventKey] ?? null;
+
+}
+
 async function buttonPress(release, input, isKeyboard) {
 
   if (isKeyboard == false) {
@@ -38,14 +79,24 @@ async function buttonPress(release, input, isKeyboard) {
   
   } else {
 
-    if (release == false) {
+    const key = toNutKey(input);
 
-      await keyboard.pressKey(input);
+    if (key == null) {
+      key = Key[input];
+    }
 
-    } else {
+    if (key !== null) {
 
-      await keyboard.releaseKey(input);
+      if (release == false) {
 
+        await keyboard.pressKey(key);
+
+      } else {
+
+        await keyboard.releaseKey(key);
+
+      }
+    
     }
 
   }
@@ -70,6 +121,8 @@ app.whenReady().then(() => {
 
   ipcMain.on("input", async (event, info) => {
 
+      console.log(info)
+
       if (info.inputType == "moveMouse") {
 
         await mouse.setPosition(new Point(Math.floor(info.xPos),Math.floor(info.yPos)));
@@ -92,11 +145,11 @@ app.whenReady().then(() => {
 
           if (info.scrollDistance < 0) {
 
-            mouse.scrollDown(info.scrollDistance);
+            mouse.scrollUp(Math.floor(Math.abs(info.scrollDistanc)));
 
           } else if (info.scrollDistance > 0) {
 
-            mouse.scrollUp(info.scrollDistance);
+            mouse.scrollDown(Math.floor(info.scrollDistance));
 
           }
 

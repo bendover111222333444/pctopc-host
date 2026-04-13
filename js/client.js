@@ -5,6 +5,13 @@ const stopBtn = document.getElementById("stopBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
 const videoEle = document.getElementById("videoPlayer");
 
+let started = false;
+let currentCapture;
+let serverSocket;
+let inputChannel;
+let pConn;
+let fps = 60;
+
 let config = {
     iceServers: [
          { urls: "stun:stun.l.google.com:19302" },
@@ -17,36 +24,34 @@ async function generateCreds() {
     const creds = await response.json()
 
     config = {
+
         iceServers: [
+            
             { urls: "stun:stun.l.google.com:19302" },
+            
             {
                 urls: creds.urls,
                 username: creds.username,
                 credential: creds.credential
             }
+
         ]
+
     }
 
 }
 
-let pConn;
-
 (async () => {
 
     await generateCreds();
-    pConn = new RTCPeerConnection(config);
 
 })();
-
-let started = false;
-let currentCapture;
-let serverSocket;
-let inputChannel;
-let fps = 60;
 
 async function startCapture() {
 
     try {
+
+        pConn = new RTCPeerConnection(config)
 
         const roomId = crypto.randomUUID();
         
@@ -117,6 +122,27 @@ async function startCapture() {
 
                 } else if (data.type == "clientConnected") {
 
+                    if (inputChannel) {
+
+                        inputChannel.close();
+                        inputChannel = null;
+                    
+                    }
+
+                    inputChannel = pConn.createDataChannel("input");
+
+                    inputChannel.onmessage = msg => {
+                        
+                        const data = JSON.parse(msg.data);
+                        
+                        if (data) {
+                            
+                            ipcRenderer.send("input", data);
+                        
+                        }
+                    
+                    };
+
                     offer = await pConn.createOffer();
                     await pConn.setLocalDescription(offer);
                 
@@ -174,19 +200,11 @@ async function stopCapture() {
     started = false;
 
     roomIdLabel.textContent = "Room Id: Start a session"
-
+    
     if (pConn) {
-
-        if (inputChannel) {
-            inputChannel.close()
-            inputChannel = null
-        }
 
         pConn.close();
         pConn = null;
-
-        pConn = new RTCPeerConnection(config)
-        inputChannel = pConn.createDataChannel("input")
 
     }
 

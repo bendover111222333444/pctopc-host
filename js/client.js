@@ -41,6 +41,7 @@ let pConn;
 let started = false;
 let currentCapture;
 let serverSocket;
+let inputChannel;
 let fps = 60;
 
 async function startCapture() {
@@ -82,8 +83,8 @@ async function startCapture() {
 
         capture.getTracks().forEach(track => pConn.addTrack(track, capture))
         
-        const inputChannel = pConn.createDataChannel("input")
-        
+        inputChannel = pConn.createDataChannel("input")
+
         inputChannel.onmessage = msg => {
             
             const data = JSON.parse(msg.data);
@@ -96,23 +97,30 @@ async function startCapture() {
 
         }
 
-        const offer = await pConn.createOffer();
+        let offer = await pConn.createOffer();
         await pConn.setLocalDescription(offer);
     
         serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
 
-        serverSocket.onmessage = msg => {
+        serverSocket.onmessage = async msg => {
 
             const data = JSON.parse(msg.data);
-            if (data.type && data.actualData) {
+            if (data.type) {
 
-                if ( data.type == "answer") {
+                if (data.type == "answer" && data.actualData) {
 
                     pConn.setRemoteDescription(data.actualData);
 
-                } else if (data.type == "ICE") {
+                } else if (data.type == "ICE" && data.actualData) {
                     
                     pConn.addIceCandidate(data.actualData)
+
+                } else if (data.type == "clientConnected") {
+
+                    offer = await pConn.createOffer();
+                    await pConn.setLocalDescription(offer);
+                
+                    serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
 
                 }
 
@@ -169,10 +177,16 @@ async function stopCapture() {
 
     if (pConn) {
 
+        if (inputChannel) {
+            inputChannel.close()
+            inputChannel = null
+        }
+
         pConn.close();
         pConn = null;
 
         pConn = new RTCPeerConnection(config)
+        inputChannel = pConn.createDataChannel("input")
 
     }
 
@@ -223,7 +237,7 @@ stopBtn.addEventListener("click", function(){
 
 document.addEventListener("keydown", (event) => {
     
-    if (e.ctrlKey && e.key === "m") {
+    if (event.ctrlKey && event.key === "m") {
 
         ipcRenderer.send("shutdown");
 

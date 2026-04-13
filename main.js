@@ -1,5 +1,7 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain } = require("electron")
+const { app, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
 const { mouse, keyboard, straightTo, Point, Button} = require('@nut-tree-fork/nut-js')
+
+mouse.config.autoDelayMs = 0;
 
 let hostingWindow = null;
 
@@ -60,6 +62,12 @@ app.whenReady().then(() => {
 
   });
 
+  globalShortcut.register("CommandOrControl+M", () => {
+    
+    app.quit();
+
+  });
+
   ipcMain.on("input", async (event, info) => {
 
       if (info.inputType == "moveMouse") {
@@ -79,6 +87,18 @@ app.whenReady().then(() => {
         } else if (info.clickType == 2) {
         
           await buttonPress(info.release, Button.RIGHT, false);
+
+        } else if (info.clickType == 3) {
+
+          if (info.scrollDistance < 0) {
+
+            mouse.scrollDown(info.scrollDistance);
+
+          } else if (info.scrollDistance > 0) {
+
+            mouse.scrollUp(info.scrollDistance);
+
+          }
 
         }
       

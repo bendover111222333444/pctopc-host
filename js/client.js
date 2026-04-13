@@ -29,6 +29,8 @@ async function generateCreds() {
 
 }
 
+let pConn;
+
 (async () => {
 
     await generateCreds();
@@ -38,6 +40,7 @@ async function generateCreds() {
 
 let started = false;
 let currentCapture;
+let serverSocket;
 let fps = 60;
 
 async function startCapture() {
@@ -45,7 +48,8 @@ async function startCapture() {
     try {
 
         const roomId = crypto.randomUUID();
-        const serverSocket = new WebSocket(`wss://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev?room=${roomId}`); // change this to your own if you are forking or it wont work
+        
+        serverSocket = new WebSocket(`wss://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev?room=${roomId}`); // change this to your own if you are forking or it wont work
 
         await new Promise(resolve => serverSocket.onopen = resolve);
 
@@ -159,16 +163,27 @@ function toggleCapture(capture, toggle) {
 
 async function stopCapture() {
     
+    started = false;
+
+    roomIdLabel.textContent = "Room Id: Start a session"
+
+    if (pConn) {
+
+        pConn.close();
+        pConn = null;
+
+        pConn = new RTCPeerConnection(config)
+
+    }
+
+    if (serverSocket) {
+
+        serverSocket.close();
+        serverSocket = null;
+
+    }
+
     if (currentCapture) {
-
-        if (pConn) {
-
-            pConn.close();
-            pConn = null;
-
-            pConn = new RTCPeerConnection(config)
-
-        }
 
         currentCapture.getTracks().forEach(function(track){
             
@@ -177,6 +192,8 @@ async function stopCapture() {
         });
 
         videoEle.srcObject = null;
+
+        currentCapture = null;
 
     }
 
@@ -200,6 +217,16 @@ stopBtn.addEventListener("click", function(){
         stopCapture();
         started = false;
     
+    }
+
+});
+
+document.addEventListener("keydown", (event) => {
+    
+    if (e.ctrlKey && e.key === "m") {
+
+        ipcRenderer.send("shutdown");
+
     }
 
 });

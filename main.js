@@ -24,7 +24,9 @@ const createWindow = () => {
 
 function toNutKey(eventKey) {
   
-  if (eventKey.length === 1) return eventKey;
+  if (eventKey === " ") return Key.Space;
+
+  if (eventKey.length === 1) return Key[eventKey.toUpperCase()];
 
   const map = {
 
@@ -79,11 +81,7 @@ async function buttonPress(release, input, isKeyboard) {
   
   } else {
 
-    const key = toNutKey(input);
-
-    if (key == null) {
-      key = Key[input];
-    }
+    let key = toNutKey(input);
 
     if (key !== null) {
 
@@ -143,7 +141,7 @@ app.whenReady().then(() => {
 
           if (info.scrollDistance < 0) {
 
-            mouse.scrollUp(Math.floor(Math.abs(info.scrollDistanc)));
+            mouse.scrollUp(Math.floor(Math.abs(info.scrollDistance)));
 
           } else if (info.scrollDistance > 0) {
 

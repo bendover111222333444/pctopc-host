@@ -71,6 +71,8 @@ async function startCapture() {
                     chromeMediaSourceId: source.id,
                     minFrameRate: 60,
                     maxFrameRate: 60,
+                    minWidth: 1280,
+                    minHeight: 720,
                 }
             },
             audio: {
@@ -81,11 +83,19 @@ async function startCapture() {
             }
         })
 
+        capture.getVideoTracks()[0].contentHint = "motion"
+
         currentCapture = capture;
 
         videoEle.srcObject = capture;
 
         //toggleCapture(capture, false);
+     
+        capture.getAudioTracks().forEach(track => {
+            
+            track.enabled = false
+        
+        })
 
         capture.getVideoTracks()[0].onended = () => {
            
@@ -94,7 +104,7 @@ async function startCapture() {
         };
 
         capture.getTracks().forEach(track => pConn.addTrack(track, capture))
-        
+
         inputChannel = pConn.createDataChannel("input")
 
         inputChannel.onmessage = msg => {
@@ -122,6 +132,18 @@ async function startCapture() {
                 if (data.type == "answer" && data.actualData) {
 
                     pConn.setRemoteDescription(data.actualData);
+
+                    const sender = pConn.getSenders().find(s => s.track && s.track.kind === "video")
+                    
+                    if (sender) {
+                        
+                        const params = sender.getParameters()
+                        params.encodings[0].maxBitrate = 5000000
+                        params.degradationPreference = "maintain-framerate"
+                        
+                        await sender.setParameters(params)
+                    
+                    }
 
                 } else if (data.type == "ICE" && data.actualData) {
                     
@@ -171,6 +193,15 @@ async function startCapture() {
 
         };
 
+        setInterval(() => {
+            
+            if (serverSocket && serverSocket.readyState === WebSocket.OPEN) {
+                
+                serverSocket.send(JSON.stringify({ type: "ping" }))
+            
+            }
+
+        }, 60000)
 
     } catch (err) {
 

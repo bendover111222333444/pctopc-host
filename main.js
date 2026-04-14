@@ -121,8 +121,6 @@ app.whenReady().then(() => {
 
   ipcMain.on("input", async (event, info) => {
 
-      console.log(info)
-
       if (info.inputType == "moveMouse") {
 
         await mouse.setPosition(new Point(Math.floor(info.xPos),Math.floor(info.yPos)));

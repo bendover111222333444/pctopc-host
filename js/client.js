@@ -65,14 +65,21 @@ async function startCapture() {
         const source = sources[0];
 
         const capture = await navigator.mediaDevices.getUserMedia({ 
-        video: {
-            mandatory: {
-                chromeMediaSource: "desktop",
-                chromeMediaSourceId: source.id,
-                minFrameRate: 60,
-                maxFrameRate: 60
+            video: {
+                mandatory: {
+                    chromeMediaSource: "desktop",
+                    chromeMediaSourceId: source.id,
+                    minFrameRate: 60,
+                    maxFrameRate: 60,
+                }
+            },
+            audio: {
+                mandatory: {
+                    chromeMediaSource: "desktop",
+                    chromeMediaSourceId: source.id,
+                }
             }
-        }})
+        })
 
         currentCapture = capture;
 

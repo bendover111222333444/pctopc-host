@@ -403,9 +403,11 @@ async function stopCapture() {
     roomIdLabel.textContent = "Room Id: Start a session"
     activeLabel.textContent = "Connected: 🔴"
 
+    if (inputChannel) { inputChannel.close(); inputChannel = null }
+    if (videoChannel) { videoChannel.close(); videoChannel = null }
+
     if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
 
-    ipcRenderer.removeAllListeners('tcp-port')
     await ipcRenderer.invoke('stop-capture')
 
     if (serverSocket) {

@@ -27,7 +27,7 @@ const screenCapSettings = {
         '-bf', '0',
         '-rc', 'cbr',
         '-b:v', '5M',
-        '-bufsize', '1M',
+        '-bufsize', '5M',
         '-f', 'h264',
         'pipe:1'
     ]
@@ -212,9 +212,9 @@ app.whenReady().then(() => {
 
           // debuging data only
 
-          // ffmpegProcess.stderr.on('data', (data) => {
+          //  ffmpegProcess.stderr.on('data', (data) => {
 
-          //   console.log('ffmpeg:', data.toString())
+          //    console.log('ffmpeg:', data.toString())
           
           // })
 

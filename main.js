@@ -1,9 +1,38 @@
 const { app, dialog, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
 const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
+const ffmpegPath = require('ffmpeg-static')
+const { spawn } = require('child_process')
+const net = require('net')
 
 mouse.config.autoDelayMs = 0;
 
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+app.commandLine.appendSwitch('ipc-message-size-limit', '134217728')
+
+let ffmpegProcess = null
 let hostingWindow = null;
+let tcpServer = null;
+
+const screenCapSettings = {
+
+    input: ['-f', 'lavfi'],
+    source: ['-i', 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra'],
+    output: [
+        '-c:v', 'h264_nvenc',
+        '-preset', 'p1',
+        '-tune', 'll',
+        '-zerolatency', '1',
+        '-g', '60',
+        '-forced-idr', '1',
+        '-bf', '0',
+        '-rc', 'cbr',
+        '-b:v', '5M',
+        '-bufsize', '1M',
+        '-f', 'h264',
+        'pipe:1'
+    ]
+
+}
 
 const createWindow = () => {
     
@@ -146,18 +175,6 @@ app.whenReady().then(() => {
   
   const { screen } = require("electron");
 
-  app.commandLine.appendSwitch('force-fieldtrials', 
-    'WebRTC-Video-Pacing/Enabled/' +
-    'WebRTC-SendSideBwe-WithOverhead/Enabled/' +
-    'WebRTC-VideoRateControl/bitrate_adjuster:false/'
-  );
-
-  // ICE + hardware
-  app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-  app.commandLine.appendSwitch('enable-zero-copy');
-  app.commandLine.appendSwitch('ignore-gpu-blocklist');
-
   createWindow();
 
   hostingWindow.on('close', (event) => {
@@ -179,11 +196,47 @@ app.whenReady().then(() => {
 
   });
 
-  ipcMain.handle("source", async () => {
+  ipcMain.handle('start-capture', async (event) => {
 
-    return await desktopCapturer.getSources({types: ["screen"]});
+      const args = [
+        ...screenCapSettings.input,
+        ...screenCapSettings.source,
+        ...screenCapSettings.output
+      ]
 
-  });
+      tcpServer = net.createServer((socket) => {
+
+          socket.on('error', () => {})
+
+          ffmpegProcess = spawn(ffmpegPath, args)
+
+          // debuging data only
+
+          // ffmpegProcess.stderr.on('data', (data) => {
+
+          //   console.log('ffmpeg:', data.toString())
+          
+          // })
+
+          ffmpegProcess.stdout.pipe(socket)
+
+      })
+
+      tcpServer.listen(0, '127.0.0.1', () => {
+
+          const port = tcpServer.address().port
+          hostingWindow.webContents.send('tcp-port', port)
+
+      })
+
+  })
+
+  ipcMain.handle('stop-capture', () => {
+
+      if (ffmpegProcess) { ffmpegProcess.kill(); ffmpegProcess = null }
+      if (tcpServer) { tcpServer.close(); tcpServer = null }
+      
+  })
 
   ipcMain.handle("screen-size", async () => {
 
@@ -192,6 +245,17 @@ app.whenReady().then(() => {
     const height = display.bounds.height * display.scaleFactor;
 
     return await {type: "screen-size", width: width, height: height}
+
+  })
+
+  ipcMain.handle("source", async () => {
+
+    return await desktopCapturer.getSources({
+
+        types: ["screen"],
+        thumbnailSize: { width: 0, height: 0 }
+
+    })
 
   })
 

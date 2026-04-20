@@ -1,0 +1,107 @@
+        //const track = currentCapture.getVideoTracks()[0]
+
+        //const processor = new MediaStreamTrackProcessor({ track })
+        //reader = processor.readable.getReader()
+
+        // encoder = new VideoEncoder({
+
+        //     output: (chunk) => {
+                
+        //         if (videoChannel && videoChannel.readyState === 'open') {
+
+        //             if (videoChannel.bufferedAmount > maxBuffer) return
+
+        //             // 1 byte key + 8 bytes timestamp + 4 bytes total size
+        //             const header = new ArrayBuffer(13)
+        //             const headerView = new DataView(header)
+
+        //             headerView.setUint8(0, chunk.type === 'key' ? 1 : 0)
+        //             headerView.setFloat64(1, chunk.timestamp)
+        //             headerView.setUint32(9, chunk.byteLength)
+
+        //             const frameData = new ArrayBuffer(chunk.byteLength)
+        //             chunk.copyTo(frameData)
+
+        //             videoChannel.send(header)
+                    
+        //             for (let index = 0; index < frameData.byteLength; index += sendChunkSize) {
+                        
+        //                 if (videoChannel.bufferedAmount > maxBuffer) break
+
+        //                 videoChannel.send(frameData.slice(index, index + sendChunkSize))
+                    
+        //             }
+
+        //         }
+
+        //     },
+
+        //     error: (event) => errorEle.value += event + '\n'
+        
+        // })
+
+        // encoder.configure({
+
+        //     codec: encoderSettings.codec,
+        //     width: screenData.width,
+        //     height: screenData.height,
+        //     bitrate: maxBRate,
+        //     framerate: fps,
+        //     latencyMode: encoderSettings.latencyMode,
+        //     hardwareAcceleration: encoderSettings.hardwareAcceleration,
+        //     avc: encoderSettings.avc,
+        //     bitrateMode: encoderSettings.bitrateMode,
+        
+        // })
+
+        // let frameCount = 0
+
+        // async function processFrames() {
+
+        //     while (isCapturing) {
+                
+        //         const { value: frame, done } = await reader.read()
+                
+        //         if (done) break
+        //         if (encoder.state === 'closed') { frame.close(); break }
+        //         if (encoder.encodeQueueSize > encoderQSize) { frame.close(); continue }
+                
+        //         if (frameCount !== 0) {
+
+        //             encoder.encode(frame, { keyFrame: frameCount % (fps * keyFrameFreq) === 0 })
+
+        //         } else {
+
+        //             encoder.encode(frame, { keyFrame: true })
+
+        //         }
+
+        //         frameCount++
+        //         frame.close()
+            
+        //     }
+
+        // }
+
+        //processFrames()
+
+        
+        //capture.getTracks().forEach(track => pConn.addTrack(track, capture))
+        //const transceivers = pConn.getTransceivers();
+        //transceivers.forEach(transceiver => {
+        //    if (transceiver.sender.track?.kind === "video") {
+        //        const codecs = RTCRtpSender.getCapabilities("video").codecs;
+        //        const preferred = codecs.filter(c => c.mimeType === "video/H264");
+        //        const rest = codecs.filter(c => c.mimeType !== "video/H264");
+        //        transceiver.setCodecPreferences([...preferred, ...rest]);
+        //    }
+        //});
+
+                    // video: {
+            //     mandatory: {
+            //         chromeMediaSource: "desktop",
+            //         chromeMediaSourceId: source.id,
+            //         minFrameRate: fps,
+            //         maxFrameRate: fps,
+            //    }
+            //},

@@ -1,38 +1,41 @@
 const { ipcRenderer } = require("electron");
+const net = require('net')
 
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
-const videoEle = document.getElementById("videoPlayer");
-const scaleEle = document.getElementById("scale");
-const setScaleEle = document.getElementById("setScaleBtn");
-const setScaleLabel = document.getElementById("setScaleLabel");
 const errorEle = document.getElementById("errorBox");
 const activeLabel = document.getElementById("activeLabel");
 
-const errorClearTime = 60000; // ms
-const websocketPing = 20000; // also ms
-const maxBRate = 5000000; // in bytes
-const minBRate = 2000000; // in bytes
+const errorClearTime = 60_000; // ms
+const websocketPing = 20_000; // also ms
+const sendChunkSize = 16_384 // 16KB
+
+const signalingWorker = "pctopc.sigmasigmaonthewallwhoisthe2.workers.dev"
 
 let started = false;
-let currentCapture;
+
 let serverSocket;
 let inputChannel;
+let videoChannel;
 let screenData;
+let tcpSocket;
 let pConn;
-let fps = 120;
-let screenScale = 1;
+let fps = 60;
 
 let config = {
+
     iceServers: [
-         { urls: "stun:stun.l.google.com:19302" },
+         
+        { urls: "stun:stun.l.google.com:19302" },
+    
     ]
+
 }
 
 async function generateCreds() {
 
-    const response = await fetch("https://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev/turn-creds") // this could break in the future if it becomes deprecated and also dont use it just use there offical service its just because im poor and i dont have access to a offical credit card
+    const response = await fetch(`https://${signalingWorker}/turn-creds`) // this could break in the future if it becomes deprecated and also dont use it just use there offical service its just because im poor and i dont have access to a offical credit card
     const creds = await response.json()
 
     config = {
@@ -60,6 +63,64 @@ async function generateCreds() {
 
 })();
 
+ipcRenderer.on('tcp-port', (event, port) => {
+
+    tcpSocket = net.createConnection(port, '127.0.0.1')
+
+    let buffer = Buffer.alloc(0)
+    
+    tcpSocket.on('data', (chunk) => {
+
+        buffer = Buffer.concat([buffer, chunk])
+
+        while (true) {
+
+            let nextStart = -1
+
+            for (let i = 4; i < buffer.length - 3; i++) {
+
+                if (buffer[i] === 0 && buffer[i+1] === 0 && buffer[i+2] === 0 && buffer[i+3] === 1) {
+
+                    nextStart = i
+                    break
+
+                }
+
+            }
+
+            if (nextStart === -1) break
+
+            const nal = buffer.slice(0, nextStart)
+            buffer = buffer.slice(nextStart)
+
+            if (nal.length < 5 || !videoChannel || videoChannel.readyState !== 'open') continue
+
+            const nalType = nal[4] & 0x1f
+            const isKey = nalType === 5 || nalType === 7 || nalType === 8
+
+            const header = new ArrayBuffer(13)
+            const headerView = new DataView(header)
+
+            headerView.setUint8(0, isKey ? 1 : 0)
+            headerView.setFloat64(1, performance.now() * 1000)
+            headerView.setUint32(9, nal.length)
+
+            videoChannel.send(header)
+
+            for (let i = 0; i < nal.length; i += sendChunkSize) {
+
+                videoChannel.send(Buffer.from(nal.slice(i, i + sendChunkSize)))
+
+            }
+
+        }
+
+    })
+
+    tcpSocket.on('error', () => {})
+
+})
+
 async function startCapture() {
 
     try {
@@ -68,93 +129,47 @@ async function startCapture() {
 
         const roomId = crypto.randomUUID();
         
-        serverSocket = new WebSocket(`wss://pctopc.sigmasigmaonthewallwhoisthe2.workers.dev?room=${roomId}`); // change this to your own if you are forking or it wont work
+        serverSocket = new WebSocket(`wss://${signalingWorker}?room=${roomId}`); // change this to your own if you are forking or it wont work
 
         await new Promise(resolve => serverSocket.onopen = resolve);
 
         roomIdLabel.textContent = "Room Id: " + roomId;
-        activeLabel.textContent = "Active: 🟢"
 
-        const sources = await ipcRenderer.invoke("source");
-        const source = sources[0];
-
-        if (sources.length === 0) {
-
-            errorEle.value += "No capture sources found - check screen recording permissions (specifically on mac)\n";
-        
-        }
-
-        if (screenData) {
-
-            videoEle.style.width = screenData.width + "px";
-            videoEle.style.height = screenData.height + "px";
-
-        } else {
-
-            errorEle.value += "Screen data not found\n";
-
-        }
+        const sources = await ipcRenderer.invoke("source")
+        const source = sources[0]
 
         const capture = await navigator.mediaDevices.getUserMedia({ 
             video: {
                 mandatory: {
                     chromeMediaSource: "desktop",
                     chromeMediaSourceId: source.id,
-                    minFrameRate: fps,
-                    maxFrameRate: fps,
+                    minWidth: 320,
+                    maxWidth: 320,
+                    minHeight: 240,
+                    maxHeight: 240,
+                    minFrameRate: 1,
+                    maxFrameRate: 1,
                 }
             },
             audio: {
                 mandatory: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
                     chromeMediaSource: "desktop",
                     chromeMediaSourceId: source.id,
                 }
             }
         })
 
-        currentCapture = capture;
-
-        videoEle.srcObject = capture;
-     
         capture.getAudioTracks().forEach(track => {
+
+            pConn.addTrack(track, capture)
             
-            track.enabled = false
-        
         })
 
-        capture.getVideoTracks()[0].onended = () => {
-           
-            stopCapture();
-            
-        };
+        capture.getTracks().forEach(track => track.enabled = false);
 
-        capture.getTracks().forEach(track => pConn.addTrack(track, capture))
+        inputChannel = pConn.createDataChannel("input", {maxRetransmits: 0})
 
-        const transceivers = pConn.getTransceivers();
-        transceivers.forEach(transceiver => {
-
-            if (transceiver.sender.track?.kind === "video") {
-                
-                const codecs = RTCRtpSender.getCapabilities("video").codecs;
-                const preferred = codecs.filter(c => c.mimeType === "video/H264");
-                const rest = codecs.filter(c => c.mimeType !== "video/H264");
-                
-                transceiver.setCodecPreferences([...preferred, ...rest]);
-
-            }
-
-        });
-
-        inputChannel = pConn.createDataChannel("input")
-
-        inputChannel.onopen = async () => {
-
-            inputChannel.send(JSON.stringify(screenData));
-            
-        }
+        videoChannel = pConn.createDataChannel("video", {ordered: false, maxRetransmits: 0})
 
         ipcRenderer.on("display-changed", async () => {
 
@@ -172,6 +187,12 @@ async function startCapture() {
 
         });
 
+        inputChannel.onopen = async () => {
+
+            inputChannel.send(JSON.stringify(screenData));
+            
+        }
+
         inputChannel.onmessage = msg => {
             
             const data = JSON.parse(msg.data);
@@ -188,7 +209,23 @@ async function startCapture() {
 
         }
 
-        let offer = await pConn.createOffer({offerToReceiveAudio: false, offerToReceiveVideo: false});
+        videoChannel.onopen = async () => {
+            
+            capture.getTracks().forEach(track => track.enabled = true);
+            await ipcRenderer.invoke('start-capture')
+            activeLabel.textContent = "Connected: 🟢"
+
+        }
+
+        videoChannel.onclose = async () => {
+
+            capture.getTracks().forEach(track => track.enabled = false);
+            await ipcRenderer.invoke('stop-capture');
+            activeLabel.textContent = "Connected: 🔴"
+
+        }
+
+        let offer = await pConn.createOffer();
         await pConn.setLocalDescription(offer);
     
         serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
@@ -201,28 +238,6 @@ async function startCapture() {
                 if (data.type == "answer" && data.actualData) {
 
                     pConn.setRemoteDescription(data.actualData);
-
-                    const sender = pConn.getSenders().find(s => s.track && s.track.kind === "video")
-                    
-                    if (sender) {
-                        
-                        const params = sender.getParameters()
-                        params.encodings[0].minBitrate = minBRate
-                        params.encodings[0].maxBitrate = maxBRate
-                        params.encodings[0].networkPriority = "high"
-                        params.encodings[0].priority = "high"
-                        params.encodings[0].minFramerate = fps
-                        params.encodings[0].maxFramerate = fps * 2
-                        params.encodings[0].scaleResolutionDownBy = screenScale
-                        params.encodings[0].degradationPreference = "maintain-framerate"
-
-                        await sender.setParameters(params)
-                    
-                    } else {
-
-                        errorEle.value += "Input packet wrongly sent\n";
-
-                    }
 
                 } else if (data.type == "ICE" && data.actualData) {
                     
@@ -241,6 +256,17 @@ async function startCapture() {
 
                     }
 
+                    if (videoChannel) {
+                        
+                        videoChannel.close()
+                        videoChannel = null
+                    
+                    } else {
+
+                        errorEle.value += "Video channel doesnt exist\n";
+
+                    }
+
                     if (pConn) {
                         
                         pConn.close()
@@ -248,8 +274,6 @@ async function startCapture() {
                     }
 
                     pConn = new RTCPeerConnection(config)
-
-                    currentCapture.getTracks().forEach(track => pConn.addTrack(track, currentCapture))
 
                     pConn.onicecandidate = iceCandidate => {
                         
@@ -271,15 +295,32 @@ async function startCapture() {
 
                     }
 
-                    inputChannel = pConn.createDataChannel("input");
+                    inputChannel = pConn.createDataChannel("input", {maxRetransmits: 0});
 
+                    videoChannel = pConn.createDataChannel("video", {ordered: false, maxRetransmits: 0})
+                    
                     inputChannel.onopen = async () => {
-
-                        console.log("new input channel")
+                        
                         screenData = await ipcRenderer.invoke("screen-size");
                         inputChannel.send(JSON.stringify(screenData));
                     
                     };
+
+                    videoChannel.onopen = async () => {
+
+                        capture.getTracks().forEach(track => track.enabled = true);
+                        await ipcRenderer.invoke('start-capture')
+                        activeLabel.textContent = "Connected: 🟢"
+
+                    }
+
+                    videoChannel.onclose = async () => {
+
+                        capture.getTracks().forEach(track => track.enabled = false);
+                        await ipcRenderer.invoke('stop-capture');
+                        activeLabel.textContent = "Connected: 🔴"
+
+                    }
 
                     inputChannel.onmessage = msg => {
                         
@@ -297,7 +338,7 @@ async function startCapture() {
                     
                     };
 
-                    offer = await pConn.createOffer();
+                    offer = await pConn.createOffer({offerToReceiveAudio: false, offerToReceiveVideo: false});
                     await pConn.setLocalDescription(offer);
                 
                     serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
@@ -355,68 +396,22 @@ async function startCapture() {
 
 }
 
-async function changeScale() {
-        
-    const sender = pConn.getSenders().find(s => s.track && s.track.kind === "video")
-    
-    if (sender) {
-        
-        const params = sender.getParameters()
-        params.encodings[0].scaleResolutionDownBy = screenScale
-        params.degradationPreference = "maintain-framerate"
-        
-        await sender.setParameters(params)
-    
-    } else {
-
-        errorEle.value += "Connection has not established yet cannot change scale\n";
-    
-    }
-
-    if (screenData) {
-
-        videoEle.style.width = Math.floor(screenData.width / screenScale) + "px";
-        videoEle.style.height = Math.floor(screenData.height / screenScale) + "px";
-
-    }
-
-}
-
 async function stopCapture() {
     
     started = false;
 
     roomIdLabel.textContent = "Room Id: Start a session"
-    activeLabel.textContent = "Active: 🔴"
+    activeLabel.textContent = "Connected: 🔴"
 
-    videoEle.style.width = "0px";
-    videoEle.style.height = "0px";
+    if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
 
-    if (pConn) {
-
-        pConn.close();
-        pConn = null;
-
-    }
+    ipcRenderer.removeAllListeners('tcp-port')
+    await ipcRenderer.invoke('stop-capture')
 
     if (serverSocket) {
 
         serverSocket.close();
         serverSocket = null;
-
-    }
-
-    if (currentCapture) {
-
-        currentCapture.getTracks().forEach(function(track){
-            
-            track.stop();
-                    
-        });
-
-        videoEle.srcObject = null;
-
-        currentCapture = null;
 
     }
 
@@ -443,42 +438,6 @@ stopBtn.addEventListener("click", function(){
     }
 
 });
-
-scaleEle.addEventListener("input", function (event) {
-
-    if (screenData) {
-
-        let scale = Math.floor(1 / scaleEle.value)
-
-        if (scale == Infinity || scale < 1) {
-
-            scale = 1;
-
-        }
-
-        setScaleLabel.textContent = `New XY Size: X: ${screenData.width / scale} Y: ${screenData.height / scale}`
-        
-    }
-
-});
-
-setScaleEle.addEventListener("click", function () {
-
-    screenScale = Math.floor(1 / scaleEle.value)
-
-    if (screenScale == Infinity || screenScale < 1) {
-
-        screenScale = 1;
-
-        errorEle.value += "Cannot set scale bigger than one\n";
-
-    }
-
-    changeScale();
-
-    scaleEle.value = "";
-
-})
 
 setInterval(() => {
     

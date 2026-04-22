@@ -8,7 +8,7 @@ const errorEle = document.getElementById("errorBox");
 const activeLabel = document.getElementById("activeLabel");
 
 const errorClearTime = 60_000; // ms
-const websocketPing = 20_000; // also ms
+const websocketPing = 120_000; // also ms
 const sendChunkSize = 16_384 // 16KB
 
 const signalingWorker = "signaling.bendover111222333444.great-site.net" // change this to your own if you are forking or it wont work
@@ -21,7 +21,6 @@ let videoChannel;
 let screenData;
 let tcpSocket;
 let pConn;
-let fps = 60;
 
 let config = {
 

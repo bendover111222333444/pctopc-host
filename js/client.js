@@ -11,7 +11,7 @@ const errorClearTime = 60_000; // ms
 const websocketPing = 20_000; // also ms
 const sendChunkSize = 16_384 // 16KB
 
-const signalingWorker = "pctopc.sigmasigmaonthewallwhoisthe2.workers.dev"
+const signalingWorker = "signaling.bendover111222333444.great-site.net" // change this to your own if you are forking or it wont work
 
 let started = false;
 
@@ -129,7 +129,7 @@ async function startCapture() {
 
         const roomId = crypto.randomUUID();
         
-        serverSocket = new WebSocket(`wss://${signalingWorker}?room=${roomId}`); // change this to your own if you are forking or it wont work
+        serverSocket = new WebSocket(`wss://${signalingWorker}?room=${roomId}`);
 
         await new Promise(resolve => serverSocket.onopen = resolve);
 

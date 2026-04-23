@@ -1,15 +1,22 @@
-const { ipcRenderer } = require("electron");
+const { ipcRenderer, ipcMain } = require("electron");
 const net = require('net')
 
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
+const copyBtn = document.getElementById("copyBtn");
+const scaleBtn = document.getElementById("scaleBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
-const errorEle = document.getElementById("errorBox");
 const activeLabel = document.getElementById("activeLabel");
+const errorEle = document.getElementById("errorBox");
+const xScaleInput = document.getElementById("xScaleInput");
+const yScaleInput = document.getElementById("yScaleInput");
 
 const errorClearTime = 60_000; // ms
 const websocketPing = 120_000; // also ms
 const sendChunkSize = 16_384 // 16KB
+const maxBufferSize = 5_000_000 // number?
+
+const originalRoomIdText = "Room Id: Start a session"
 
 const signalingWorker = "signaling.bendover111222333444.great-site.net" // change this to your own if you are forking or it wont work
 
@@ -21,6 +28,7 @@ let videoChannel;
 let screenData;
 let tcpSocket;
 let pConn;
+let roomId;
 
 let config = {
 
@@ -94,6 +102,13 @@ ipcRenderer.on('tcp-port', (event, port) => {
 
             if (nal.length < 5 || !videoChannel || videoChannel.readyState !== 'open') continue
 
+            if (videoChannel.bufferedAmount > maxBufferSize) {
+
+                buffer = Buffer.alloc(0)
+                break
+
+            }
+
             const nalType = nal[4] & 0x1f
             const isKey = nalType === 5 || nalType === 7 || nalType === 8
 
@@ -126,13 +141,17 @@ async function startCapture() {
 
         pConn = new RTCPeerConnection(config)
 
-        const roomId = crypto.randomUUID();
+        roomId = crypto.randomUUID();
         
         serverSocket = new WebSocket(`wss://${signalingWorker}?room=${roomId}`);
+        
+        activeLabel.textContent = "Connected: 🟠 Opening Server max 30 sec"
 
         await new Promise(resolve => serverSocket.onopen = resolve);
 
-        roomIdLabel.textContent = "Room Id: " + roomId;
+        activeLabel.textContent = "Connected: 🟠 Opened Server Awaiting Connection"
+
+        roomIdLabel.textContent = `Room Id: ${roomId}`;
 
         const sources = await ipcRenderer.invoke("source")
         const source = sources[0]
@@ -140,6 +159,7 @@ async function startCapture() {
         const capture = await navigator.mediaDevices.getUserMedia({ 
             video: {
                 mandatory: {
+
                     chromeMediaSource: "desktop",
                     chromeMediaSourceId: source.id,
                     minWidth: 320,
@@ -148,14 +168,21 @@ async function startCapture() {
                     maxHeight: 240,
                     minFrameRate: 1,
                     maxFrameRate: 1,
+                
                 }
             },
+
             audio: {
+
                 mandatory: {
+
                     chromeMediaSource: "desktop",
                     chromeMediaSourceId: source.id,
+                
                 }
+
             }
+            
         })
 
         capture.getAudioTracks().forEach(track => {
@@ -212,15 +239,7 @@ async function startCapture() {
             
             capture.getTracks().forEach(track => track.enabled = true);
             await ipcRenderer.invoke('start-capture')
-            activeLabel.textContent = "Connected: 🟢"
-
-        }
-
-        videoChannel.onclose = async () => {
-
-            capture.getTracks().forEach(track => track.enabled = false);
-            await ipcRenderer.invoke('stop-capture');
-            activeLabel.textContent = "Connected: 🔴"
+            activeLabel.textContent = "Connected: 🟢 Client Connected"
 
         }
 
@@ -284,15 +303,27 @@ async function startCapture() {
                     
                     }
 
-                    pConn.onconnectionstatechange = () => {
-            
+                    pConn.onconnectionstatechange = async () => {
+
                         if (pConn.connectionState === 'failed') {
 
                             pConn.restartIce()
 
+                        } else if (pConn.connectionState === 'disconnected' || pConn.connectionState === 'closed') {
+
+                            capture.getTracks().forEach(track => track.enabled = false);
+                            await ipcRenderer.invoke('stop-capture');
+                            activeLabel.textContent = "Connected: 🟠 Awaiting User"
+
                         }
 
                     }
+
+                    capture.getAudioTracks().forEach(track => {
+
+                        pConn.addTrack(track, capture)
+                        
+                    })
 
                     inputChannel = pConn.createDataChannel("input", {maxRetransmits: 0});
 
@@ -309,15 +340,7 @@ async function startCapture() {
 
                         capture.getTracks().forEach(track => track.enabled = true);
                         await ipcRenderer.invoke('start-capture')
-                        activeLabel.textContent = "Connected: 🟢"
-
-                    }
-
-                    videoChannel.onclose = async () => {
-
-                        capture.getTracks().forEach(track => track.enabled = false);
-                        await ipcRenderer.invoke('stop-capture');
-                        activeLabel.textContent = "Connected: 🔴"
+                        activeLabel.textContent = "Connected: 🟢 Client Connected"
 
                     }
 
@@ -362,11 +385,17 @@ async function startCapture() {
 
         };
 
-        pConn.onconnectionstatechange = () => {
+        pConn.onconnectionstatechange = async () => {
 
             if (pConn.connectionState === 'failed') {
 
                 pConn.restartIce()
+
+            } else if (pConn.connectionState === 'disconnected' || pConn.connectionState === 'closed') {
+
+                capture.getTracks().forEach(track => track.enabled = false);
+                await ipcRenderer.invoke('stop-capture');
+                activeLabel.textContent = "Connected: 🟠 Awaiting User"
 
             }
 
@@ -398,9 +427,10 @@ async function startCapture() {
 async function stopCapture() {
     
     started = false;
+    roomId = null;
 
     roomIdLabel.textContent = "Room Id: Start a session"
-    activeLabel.textContent = "Connected: 🔴"
+    activeLabel.textContent = "Connected: 🔴 Stopped"
 
     if (inputChannel) { inputChannel.close(); inputChannel = null }
     if (videoChannel) { videoChannel.close(); videoChannel = null }
@@ -418,7 +448,7 @@ async function stopCapture() {
 
 }
 
-startBtn.addEventListener("click", function(){
+startBtn.addEventListener("click", () => {
     
     if (started == false) {
 
@@ -429,7 +459,7 @@ startBtn.addEventListener("click", function(){
 
 });
 
-stopBtn.addEventListener("click", function(){
+stopBtn.addEventListener("click", () => {
     
     if (started == true) {
 
@@ -439,6 +469,45 @@ stopBtn.addEventListener("click", function(){
     }
 
 });
+
+copyBtn.addEventListener("click", () => {
+    
+    if (roomId) {
+
+        navigator.clipboard.writeText(roomId);
+
+    } else {
+
+        errorEle.value += "Cannot copy room id doesnt exist yet\n";
+
+    }
+
+})
+
+scaleBtn.addEventListener("click", async () => {
+
+    if (started == true) {
+
+        if (xScaleInput.value !== "" && yScaleInput.value !== "") {
+
+            await ipcRenderer.invoke("changeScale", Number(xScaleInput.value), Number(yScaleInput.value));
+
+        } else {
+
+            errorEle.value += "Cannot accept empty field\n";
+
+        }
+
+    } else {
+
+        errorEle.value += "Cannot change scale room does not exist yet\n";
+
+    }
+
+    xScaleInput.value = ""
+    yScaleInput.value = ""
+
+})
 
 setInterval(() => {
     

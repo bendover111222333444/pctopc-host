@@ -1,50 +1,55 @@
-const { app, dialog, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
+const { app, dialog, screen, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
 const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
 const ffmpegPath = require('ffmpeg-static')
 const { spawn } = require('child_process')
 const net = require('net')
+const { start } = require("repl")
 
 mouse.config.autoDelayMs = 0;
 
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('ipc-message-size-limit', '134217728')
 
-let ffmpegProcess = null
-let hostingWindow = null;
-let tcpServer = null;
+const encoders = require('child_process').execSync(`"${ffmpegPath}" -encoders 2>&1`).toString()
+const videoEncoder = encoders.includes('h264_nvenc') ? 'h264_nvenc' : 'libx264'
+const encoderPreset = videoEncoder === 'h264_nvenc' ? 'p1' : 'ultrafast'
 
-const screenCapSettings = {
+let screenCapArgs = [
 
-    input: ['-f', 'lavfi'],
-    source: ['-i', 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra'],
-    output: [
-        '-c:v', 'h264_nvenc',
-        '-preset', 'p1',
-        '-tune', 'll',
-        '-zerolatency', '1',
-        '-g', '60',
-        '-forced-idr', '1',
-        '-bf', '0',
-        '-rc', 'cbr',
-        '-b:v', '5M',
-        '-bufsize', '5M',
-        '-f', 'h264',
-        'pipe:1'
-    ]
+    '-f', 'lavfi',
+    '-i', 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra',
+    '-c:v', videoEncoder,
+    '-preset', encoderPreset,
+    ...(videoEncoder === 'h264_nvenc' ? ['-tune', 'll', '-zerolatency', '1', '-rc', 'cbr'] : []),
+    '-g', '60',
+    '-forced-idr', '1',
+    '-bf', '0',
+    '-b:v', '5M',
+    '-bufsize', '5M',
+    '-f', 'h264',
+    'pipe:1'
 
-}
+]
+
+let ffmpegProcess;
+let hostingWindow;
+let tcpServer;
+
+let xSizeSetting;
+let ySizeSetting;
 
 const createWindow = () => {
     
     hostingWindow = new BrowserWindow({
+
         width: 600,
         height: 600,
-        //resizable: false,
         icon: "./assets/goofyIcon.png",
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
         }
+
     });
     
     hostingWindow.loadFile('html/index.html');
@@ -135,6 +140,72 @@ function toNutKey(eventKey) {
   return null;
 }
 
+async function startCapture() {
+
+  tcpServer = net.createServer((socket) => {
+
+    socket.on('error', () => {})
+
+    ffmpegProcess = spawn(ffmpegPath, screenCapArgs)
+
+    // debuging data only
+
+    //  ffmpegProcess.stderr.on('data', (data) => {
+
+    //    console.log('ffmpeg:', data.toString())
+    
+    // })
+
+    ffmpegProcess.stdout.pipe(socket)
+
+  })
+
+  tcpServer.listen(0, '127.0.0.1', () => {
+
+    const port = tcpServer.address().port
+    hostingWindow.webContents.send('tcp-port', port)
+
+  })
+}
+
+async function stopCapture() {
+
+  if (ffmpegProcess) { ffmpegProcess.kill(); ffmpegProcess = null }
+  if (tcpServer) { tcpServer.close(); tcpServer = null }
+
+}
+
+async function changeScale(xSize, ySize) {
+  
+    await stopCapture();
+
+    const display = screen.getPrimaryDisplay();
+    const width = display.bounds.width * display.scaleFactor;
+    const height = display.bounds.height * display.scaleFactor;
+    
+    xSize = Math.floor(xSize);
+    ySize = Math.floor(ySize);
+
+    if (xSize < width && ySize < height && xSize >= 2 && ySize >= 2) {
+
+      const scaleString = `scale=${xSize}:${ySize}`;
+
+      if (!screenCapArgs.includes('-vf')) {
+
+        screenCapArgs.splice(screenCapArgs.indexOf('-c:v'), 0, '-vf', scaleString)
+
+      } else {
+
+        screenCapArgs[screenCapArgs.indexOf('-vf') + 1] = scaleString
+
+      }
+
+    }
+
+    await startCapture();
+
+}
+
 async function buttonPress(release, input, isKeyboard) {
 
   if (isKeyboard == false) {
@@ -182,10 +253,12 @@ app.whenReady().then(() => {
     event.preventDefault();
 
     const choice = dialog.showMessageBoxSync(hostingWindow, {
+      
       type: 'question',
       buttons: ['Yes', 'Cancel'],
       title: 'Confirm',
       message: 'Are you sure you want to quit?'
+    
     });
 
     if (choice === 0) {
@@ -198,43 +271,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('start-capture', async (event) => {
 
-      const args = [
-        ...screenCapSettings.input,
-        ...screenCapSettings.source,
-        ...screenCapSettings.output
-      ]
-
-      tcpServer = net.createServer((socket) => {
-
-          socket.on('error', () => {})
-
-          ffmpegProcess = spawn(ffmpegPath, args)
-
-          // debuging data only
-
-          //  ffmpegProcess.stderr.on('data', (data) => {
-
-          //    console.log('ffmpeg:', data.toString())
-          
-          // })
-
-          ffmpegProcess.stdout.pipe(socket)
-
-      })
-
-      tcpServer.listen(0, '127.0.0.1', () => {
-
-          const port = tcpServer.address().port
-          hostingWindow.webContents.send('tcp-port', port)
-
-      })
+    await startCapture();
 
   })
 
-  ipcMain.handle('stop-capture', () => {
+  ipcMain.handle('stop-capture', async () => {
 
-      if (ffmpegProcess) { ffmpegProcess.kill(); ffmpegProcess = null }
-      if (tcpServer) { tcpServer.close(); tcpServer = null }
+    await stopCapture();
       
   })
 
@@ -245,6 +288,12 @@ app.whenReady().then(() => {
     const height = display.bounds.height * display.scaleFactor;
 
     return await {type: "screen-size", width: width, height: height}
+
+  })
+
+  ipcMain.handle("changeScale", async (event, xSize, ySize) => {
+
+    await changeScale(xSize, ySize);
 
   })
 

@@ -5,15 +5,20 @@
     <label id = "roomIdLabel">Room Id: Start a session</label>
     <button id = "startBtn">Start</button>
     <button id = "stopBtn">Stop</button>
+    <button id = "copyBtn">Copy</button>
     <br>
-    <label id = "activeLabel">Connected: 🔴</label>
+    <label id = "activeLabel">Connected: 🔴 Stopped</label>
     <br>
-    <p>Send Size:</p>
-    <input type = "number" id = "scale" placeholder="1">
+    <p>Set Send Size (Can be really benifical)</p>
+    <label>X: </label>
+    <input type = "number" id = "xScaleInput" placeholder="1920">
+    <label>Y: </label>
+    <input type = "number" id = "yScaleInput" placeholder="1080">
+    <button id = "scaleBtn">Set Scale</button>
     <br>
     <p>Errors:</p>
     <textarea id="errorBox" readonly></textarea>
     <br>
-    <script src="../js/client.js"></script>
+    <script src="../js/host.js"></script>
   </body>
 </html>

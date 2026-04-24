@@ -22,6 +22,7 @@ const signalingWorker = "signaling.bendover111222333444.great-site.net" // chang
 
 let started = false;
 
+let buffer = Buffer.alloc(0)
 let serverSocket;
 let inputChannel;
 let videoChannel;
@@ -74,8 +75,8 @@ ipcRenderer.on('tcp-port', (event, port) => {
 
     tcpSocket = net.createConnection(port, '127.0.0.1')
 
-    let buffer = Buffer.alloc(0)
-    
+    buffer = Buffer.alloc(0)
+
     tcpSocket.on('data', (chunk) => {
 
         buffer = Buffer.concat([buffer, chunk])
@@ -236,9 +237,10 @@ async function startCapture() {
         }
 
         videoChannel.onopen = async () => {
-            
+
             capture.getTracks().forEach(track => track.enabled = true);
             await ipcRenderer.invoke('start-capture')
+            buffer = Buffer.alloc(0)
             activeLabel.textContent = "Connected: 🟢 Client Connected"
 
         }
@@ -255,13 +257,17 @@ async function startCapture() {
 
                 if (data.type == "answer" && data.actualData) {
 
-                    pConn.setRemoteDescription(data.actualData);
+                    await pConn.setRemoteDescription(data.actualData);
 
                 } else if (data.type == "ICE" && data.actualData) {
                     
-                    pConn.addIceCandidate(data.actualData)
+                    await pConn.addIceCandidate(data.actualData)
 
                 } else if (data.type == "clientConnected") {
+
+                    capture.getTracks().forEach(track => track.enabled = false);
+                    await ipcRenderer.invoke('stop-capture');
+                    buffer = Buffer.alloc(0);
 
                     if (inputChannel) {
 
@@ -287,7 +293,10 @@ async function startCapture() {
 
                     if (pConn) {
                         
-                        pConn.close()
+                        pConn.onicecandidate = null;
+                        pConn.onconnectionstatechange = null;
+                        pConn.close();
+                        pConn = null;
                     
                     }
 
@@ -313,6 +322,13 @@ async function startCapture() {
 
                             capture.getTracks().forEach(track => track.enabled = false);
                             await ipcRenderer.invoke('stop-capture');
+                            buffer = Buffer.alloc(0)
+
+                            pConn.onicecandidate = null;
+                            pConn.onconnectionstatechange = null;
+                            pConn.close();
+                            pConn = null;
+
                             activeLabel.textContent = "Connected: 🟠 Awaiting User"
 
                         }
@@ -328,7 +344,7 @@ async function startCapture() {
                     inputChannel = pConn.createDataChannel("input", {maxRetransmits: 0});
 
                     videoChannel = pConn.createDataChannel("video", {ordered: false, maxRetransmits: 0})
-                    
+
                     inputChannel.onopen = async () => {
                         
                         screenData = await ipcRenderer.invoke("screen-size");
@@ -340,6 +356,7 @@ async function startCapture() {
 
                         capture.getTracks().forEach(track => track.enabled = true);
                         await ipcRenderer.invoke('start-capture')
+                        buffer = Buffer.alloc(0)
                         activeLabel.textContent = "Connected: 🟢 Client Connected"
 
                     }
@@ -365,8 +382,25 @@ async function startCapture() {
                 
                     serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
 
-                }
+                } else if (data.type == "clientDisconnected") {
+                    
+                    capture.getTracks().forEach(track => track.enabled = false);
+                    await ipcRenderer.invoke('stop-capture');
+                    buffer = Buffer.alloc(0);
+                    
+                    if (pConn) {
 
+                        pConn.onicecandidate = null;
+                        pConn.onconnectionstatechange = null;
+                        pConn.close();
+                        pConn = null;
+
+                    }
+                    
+                    activeLabel.textContent = "Connected: 🟠 Awaiting User"
+
+                }
+                
             } else {
 
                 errorEle.value += "Wrong data types\n";
@@ -389,12 +423,19 @@ async function startCapture() {
 
             if (pConn.connectionState === 'failed') {
 
-                pConn.restartIce()
+                await pConn.restartIce()
 
             } else if (pConn.connectionState === 'disconnected' || pConn.connectionState === 'closed') {
 
                 capture.getTracks().forEach(track => track.enabled = false);
                 await ipcRenderer.invoke('stop-capture');
+                buffer = Buffer.alloc(0)
+
+                pConn.onicecandidate = null;
+                pConn.onconnectionstatechange = null;
+                pConn.close();
+                pConn = null;
+                
                 activeLabel.textContent = "Connected: 🟠 Awaiting User"
 
             }
@@ -438,6 +479,7 @@ async function stopCapture() {
     if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
 
     await ipcRenderer.invoke('stop-capture')
+    buffer = Buffer.alloc(0)
 
     if (serverSocket) {
 
@@ -446,6 +488,15 @@ async function stopCapture() {
 
     }
 
+    if (pConn) {
+
+        pConn.onicecandidate = null;
+        pConn.onconnectionstatechange = null;
+        pConn.close();
+        pConn = null;
+
+    }
+    
 }
 
 startBtn.addEventListener("click", () => {

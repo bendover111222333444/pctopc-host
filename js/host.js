@@ -21,6 +21,9 @@ const originalRoomIdText = "Room Id: Start a session"
 const signalingWorker = "signaling.bendover111222333444.great-site.net" // change this to your own if you are forking or it wont work
 
 let started = false;
+let remoteDescSet = false
+
+let iceCandidateQueue = []
 
 let buffer = Buffer.alloc(0)
 let serverSocket;
@@ -247,8 +250,22 @@ async function startCapture() {
 
         let offer = await pConn.createOffer();
         await pConn.setLocalDescription(offer);
-    
-        serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
+        
+        await new Promise(resolve => {
+
+            if (pConn.iceGatheringState === 'complete') return resolve()
+
+            pConn.onicegatheringstatechange = () => {
+
+                if (pConn.iceGatheringState === 'complete') resolve()
+
+            }
+
+            setTimeout(resolve, 2000)
+
+        })
+
+        serverSocket.send(JSON.stringify({type: "offer", actualData: pConn.localDescription}));
 
         serverSocket.onmessage = async msg => {
 
@@ -258,12 +275,31 @@ async function startCapture() {
                 if (data.type == "answer" && data.actualData) {
 
                     await pConn.setRemoteDescription(data.actualData);
+                    remoteDescSet = true
+
+                    for (const cand of iceCandidateQueue) {
+                        try { await pConn.addIceCandidate(cand) } catch(e) {}
+                    }
+                    
+                    iceCandidateQueue = []
 
                 } else if (data.type == "ICE" && data.actualData) {
-                    
-                    await pConn.addIceCandidate(data.actualData)
 
+                    if (remoteDescSet) {
+
+                        try {
+                            await pConn.addIceCandidate(data.actualData)
+                        } catch(e) {}
+
+                    } else {
+
+                        iceCandidateQueue.push(data.actualData)
+
+                    }
                 } else if (data.type == "clientConnected") {
+                    
+                    remoteDescSet = false
+                    iceCandidateQueue = []
 
                     capture.getTracks().forEach(track => track.enabled = false);
                     await ipcRenderer.invoke('stop-capture');
@@ -379,28 +415,25 @@ async function startCapture() {
 
                     offer = await pConn.createOffer({offerToReceiveAudio: false, offerToReceiveVideo: false});
                     await pConn.setLocalDescription(offer);
-                
-                    serverSocket.send(JSON.stringify({type: "offer", actualData: offer}));
-
-                } else if (data.type == "clientDisconnected") {
                     
-                    capture.getTracks().forEach(track => track.enabled = false);
-                    await ipcRenderer.invoke('stop-capture');
-                    buffer = Buffer.alloc(0);
-                    
-                    if (pConn) {
+                    await new Promise(resolve => {
 
-                        pConn.onicecandidate = null;
-                        pConn.onconnectionstatechange = null;
-                        pConn.close();
-                        pConn = null;
+                        if (pConn.iceGatheringState === 'complete') return resolve()
 
-                    }
-                    
-                    activeLabel.textContent = "Connected: 🟠 Awaiting User"
+                        pConn.onicegatheringstatechange = () => {
+
+                            if (pConn.iceGatheringState === 'complete') resolve()
+
+                        }
+
+                        setTimeout(resolve, 2000)
+
+                    })
+
+                    serverSocket.send(JSON.stringify({type: "offer", actualData: pConn.localDescription}));
 
                 }
-                
+
             } else {
 
                 errorEle.value += "Wrong data types\n";

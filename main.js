@@ -11,24 +11,26 @@ app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('ipc-message-size-limit', '134217728')
 
 const encoders = require('child_process').execSync(`"${ffmpegPath}" -encoders 2>&1`).toString()
-const videoEncoder = encoders.includes('h264_nvenc') ? 'h264_nvenc' : 'libx264'
-const encoderPreset = videoEncoder === 'h264_nvenc' ? 'p1' : 'ultrafast'
+
+const isNvidia = encoders.includes('h264_nvenc')
+const videoEncoder = isNvidia ? 'h264_nvenc' : 'libx264'
+const encoderPreset = isNvidia ? 'p1' : 'ultrafast'
 
 let screenCapArgs = [
-
     '-f', 'lavfi',
-    '-i', 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra',
+    '-i', isNvidia
+        ? 'ddagrab=framerate=60:draw_mouse=1:0'
+        : 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra',
     '-c:v', videoEncoder,
     '-preset', encoderPreset,
-    ...(videoEncoder === 'h264_nvenc' ? ['-tune', 'll', '-zerolatency', '1', '-rc', 'cbr'] : []),
+    ...(isNvidia ? ['-tune', 'll', '-zerolatency', '1', '-rc', 'cbr'] : ['-tune', 'zerolatency', '-threads', '0']),
     '-g', '60',
     '-forced-idr', '1',
     '-bf', '0',
-    '-b:v', '5M',
-    '-bufsize', '5M',
+    '-b:v', '8M',
+    '-bufsize', '8M',
     '-f', 'h264',
     'pipe:1'
-
 ]
 
 let ffmpegProcess;
@@ -188,15 +190,17 @@ async function changeScale(xSize, ySize) {
 
     if (xSize < width && ySize < height && xSize >= 2 && ySize >= 2) {
 
-      const scaleString = `scale=${xSize}:${ySize}`;
+      const scaleString = isNvidia ? `scale_cuda=${xSize}:${ySize}` : `scale=${xSize}:${ySize}`
 
-      if (!screenCapArgs.includes('-vf')) {
+      const vfIndex = screenCapArgs.indexOf('-vf')
 
-        screenCapArgs.splice(screenCapArgs.indexOf('-c:v'), 0, '-vf', scaleString)
-
+      if (vfIndex === -1) {
+        
+          screenCapArgs.splice(screenCapArgs.indexOf('-c:v'), 0, '-vf', scaleString)
+          
       } else {
 
-        screenCapArgs[screenCapArgs.indexOf('-vf') + 1] = scaleString
+          screenCapArgs[vfIndex + 1] = scaleString
 
       }
 

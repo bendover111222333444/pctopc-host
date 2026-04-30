@@ -12,9 +12,9 @@ const xScaleInput = document.getElementById("xScaleInput");
 const yScaleInput = document.getElementById("yScaleInput");
 
 const errorClearTime = 60_000; // ms
-const websocketPing = 120_000; // also ms
 const sendChunkSize = 16_384 // 16KB
 const maxBufferSize = 5_000_000 // number?
+const iceTimeOut = 5_000; // ms
 
 const originalRoomIdText = "Room Id: Start a session"
 
@@ -153,6 +153,16 @@ async function startCapture() {
 
         await new Promise(resolve => serverSocket.onopen = resolve);
 
+        pConn.onicecandidate = iceCandidate => {
+
+            if (iceCandidate.candidate) {
+            
+                serverSocket.send(JSON.stringify({type: "ICE", actualData: iceCandidate.candidate}));
+
+            }
+
+        };
+
         activeLabel.textContent = "Connected: 🟠 Opened Server Awaiting Connection"
 
         roomIdLabel.textContent = `Room Id: ${roomId}`;
@@ -261,7 +271,7 @@ async function startCapture() {
 
             }
 
-            setTimeout(resolve, 2000)
+            setTimeout(resolve, iceTimeOut)
 
         })
 
@@ -426,7 +436,7 @@ async function startCapture() {
 
                         }
 
-                        setTimeout(resolve, 2000)
+                        setTimeout(resolve, iceTimeOut)
 
                     })
 
@@ -437,16 +447,6 @@ async function startCapture() {
             } else {
 
                 errorEle.value += "Wrong data types\n";
-
-            }
-
-        };
-
-        pConn.onicecandidate = iceCandidate => {
-
-            if (iceCandidate.candidate) {
-            
-                serverSocket.send(JSON.stringify({type: "ICE", actualData: iceCandidate.candidate}));
 
             }
 
@@ -474,21 +474,6 @@ async function startCapture() {
             }
 
         }
-
-        setInterval(() => {
-            
-            if (serverSocket && serverSocket.readyState === WebSocket.OPEN) {
-                
-                serverSocket.send(JSON.stringify({ type: "ping" }))
-            
-            } else {
-
-                errorEle.value += "Server socket is not open or doesnt exist \n";
-
-            }
-
-
-        }, websocketPing)
 
     } catch (err) {
 

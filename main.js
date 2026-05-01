@@ -3,7 +3,6 @@ const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
 const ffmpegPath = require('ffmpeg-static')
 const { spawn } = require('child_process')
 const net = require('net')
-const { start } = require("repl")
 
 mouse.config.autoDelayMs = 0;
 

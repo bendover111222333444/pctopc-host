@@ -15,25 +15,24 @@
     "electron-builder": "^24.0.0"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@nut-tree-fork/nut-js": "^4.2.6",
-    "mux.js": "^6.3.0"
+      "@nut-tree-fork/nut-js": "^4.2.6",
+      "ffmpeg-static": "^5.3.0",
+      "mux.js": "^6.3.0"
   },
-  
   "build": {
-    "appId": "com.bendover.pctopc",
-    "extraMetadata": {
-      "description": "pctopc-host"
-    },
-    "win": {
-        "target": "portable",
-        "icon": "assets/goofyIcon.png"
-    },
+      "appId": "com.bendover.pctopc",
+      "extraMetadata": {
+        "description": "pctopc-host"
+      },
+      "win": {
+          "target": "portable",
+          "icon": "assets/goofyIcon.png"
+      },
     "extraResources": [
-      {
-          "from": "node_modules/@ffmpeg-installer/win32-x64/ffmpeg.exe",
-          "to": "ffmpeg.exe"
-      }
+        {
+            "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+            "to": "ffmpeg.exe"
+        }
     ],
     "asarUnpack": [
         "**/node_modules/@nut-tree-fork/**",

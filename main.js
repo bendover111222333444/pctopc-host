@@ -1,6 +1,6 @@
 const { app, dialog, screen, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
 const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
-const ffmpegPath = require('path').join(process.resourcesPath, 'ffmpeg.exe')
+const ffmpegPath = app.isPackaged ? require('path').join(process.resourcesPath, 'ffmpeg.exe'): require('ffmpeg-static')
 const { spawn } = require('child_process')
 const net = require('net')
 
@@ -151,11 +151,11 @@ async function startCapture() {
 
     // debuging data only
 
-    //  ffmpegProcess.stderr.on('data', (data) => {
+    //ffmpegProcess.stderr.on('data', (data) => {
 
-    //    console.log('ffmpeg:', data.toString())
+    //  console.log('ffmpeg:', data.toString())
     
-    // })
+    //})
 
     ffmpegProcess.stdout.pipe(socket)
 
@@ -206,6 +206,19 @@ async function changeScale(xSize, ySize) {
     }
 
     await startCapture();
+
+}
+
+async function changeFps(fps) {
+
+  await stopCapture();
+
+  const iIndex = screenCapArgs.indexOf('-i')
+    
+  screenCapArgs[iIndex + 1] = screenCapArgs[iIndex + 1].replace(/framerate=\d+/, `framerate=${fps}`)
+  screenCapArgs[screenCapArgs.indexOf('-g') + 1] = String(fps)
+
+  await startCapture();
 
 }
 
@@ -297,6 +310,12 @@ app.whenReady().then(() => {
   ipcMain.handle("changeScale", async (event, xSize, ySize) => {
 
     await changeScale(xSize, ySize);
+
+  })
+  
+  ipcMain.handle("changeFps", async (event, fps) => {
+
+    await changeFps(fps);
 
   })
 

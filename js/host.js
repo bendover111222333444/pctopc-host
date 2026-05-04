@@ -5,11 +5,13 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const copyBtn = document.getElementById("copyBtn");
 const scaleBtn = document.getElementById("scaleBtn");
+const fpsBtn = document.getElementById("fpsBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
 const activeLabel = document.getElementById("activeLabel");
 const errorEle = document.getElementById("errorBox");
 const xScaleInput = document.getElementById("xScaleInput");
 const yScaleInput = document.getElementById("yScaleInput");
+const fpsInput = document.getElementById("fpsInput");
 
 const errorClearTime = 300_000; // ms
 const sendChunkSize = 16_384 // 16KB
@@ -569,26 +571,34 @@ copyBtn.addEventListener("click", () => {
 
 scaleBtn.addEventListener("click", async () => {
 
-    if (started == true) {
+    if (xScaleInput.value !== "" && yScaleInput.value !== "") {
 
-        if (xScaleInput.value !== "" && yScaleInput.value !== "") {
-
-            await ipcRenderer.invoke("changeScale", Number(xScaleInput.value), Number(yScaleInput.value));
-
-        } else {
-
-            errorEle.value += "Cannot accept empty field\n";
-
-        }
+        await ipcRenderer.invoke("changeScale", Number(xScaleInput.value), Number(yScaleInput.value));
 
     } else {
 
-        errorEle.value += "Cannot change scale room does not exist yet\n";
+        errorEle.value += "Cannot accept empty field\n";
 
     }
 
     xScaleInput.value = ""
     yScaleInput.value = ""
+
+})
+
+fpsBtn.addEventListener("click", async () => {
+
+    if (fpsInput.value !== "") {
+
+        await ipcRenderer.invoke("changeFps", Number(fpsInput.value));
+
+    } else {
+
+        errorEle.value += "Cannot accept empty field\n";
+
+    }
+
+    fpsInput.value = ""
 
 })
 

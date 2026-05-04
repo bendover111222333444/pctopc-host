@@ -1,35 +1,35 @@
 {
-  "build": {
-    "asarUnpack": [
-      "**/node_modules/@nut-tree/**"
-    ]
-  },
   "name": "pctopc-server",
   "version": "1.0.0",
   "description": "A app using WebRTC to give remote computer access.",
-  "homepage": "https://github.com/bendover111222333444/pctopc-server#readme",
-  "bugs": {
-    "url": "https://github.com/bendover111222333444/pctopc-server/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/bendover111222333444/pctopc-server.git"
-  },
-  "license": "MIT",
-  "author": "Bendover111222333444",
-  "type": "commonjs",
   "main": "main.js",
+  "type": "commonjs",
+  "author": "Bendover111222333444",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^41.1.0"
+    "electron": "^41.1.0",
+    "electron-builder": "^24.0.0"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "ffmpeg-static": "^5.3.0",
     "mux.js": "^6.3.0"
+  },
+  "build": {
+    "appId": "com.bendover.pctopc",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/goofyIcon.png"
+    },
+    "asarUnpack": [
+      "**/node_modules/@nut-tree/**",
+      "**/node_modules/ffmpeg-static/**",
+      "**/node_modules/@ffmpeg-installer/**"
+    ]
   }
 }

@@ -1,1 +1,4 @@
 node_modules/
+dist/
+oldcodeland.txt
+node_path.txt

@@ -11,7 +11,7 @@ const errorEle = document.getElementById("errorBox");
 const xScaleInput = document.getElementById("xScaleInput");
 const yScaleInput = document.getElementById("yScaleInput");
 
-const errorClearTime = 60_000; // ms
+const errorClearTime = 60_000000000; // ms
 const sendChunkSize = 16_384 // 16KB
 const maxBufferSize = 5_000_000 // number?
 const iceTimeOut = 5_000; // ms
@@ -165,8 +165,8 @@ async function startCapture() {
 
         };
 
-        serverSocket.onerror = (e) => errorEle.value += `WS Error: ${JSON.stringify(e)}\n`
-        serverSocket.onclose = (e) => errorEle.value += `WS Closed: ${e.code} ${e.reason}\n`
+        serverSocket.onerror = (err) => errorEle.value += `WS Error: ${JSON.stringify(err)}\n`
+        serverSocket.onclose = (err) => errorEle.value += `WS Closed: ${err.code} ${err.reason}\n`
 
         activeLabel.textContent = "Connected: 🟠 Opened Server Awaiting Connection"
 

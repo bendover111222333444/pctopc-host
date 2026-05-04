@@ -1,6 +1,6 @@
 const { app, dialog, screen, BrowserWindow, desktopCapturer, ipcMain ,globalShortcut} = require("electron")
 const { mouse, keyboard, Point, Button, Key} = require('@nut-tree-fork/nut-js')
-const ffmpegPath = require('ffmpeg-static')
+const ffmpegPath = require('path').join(process.resourcesPath, 'ffmpeg.exe')
 const { spawn } = require('child_process')
 const net = require('net')
 

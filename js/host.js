@@ -165,6 +165,9 @@ async function startCapture() {
 
         };
 
+        serverSocket.onerror = (e) => errorEle.value += `WS Error: ${JSON.stringify(e)}\n`
+        serverSocket.onclose = (e) => errorEle.value += `WS Closed: ${e.code} ${e.reason}\n`
+
         activeLabel.textContent = "Connected: 🟠 Opened Server Awaiting Connection"
 
         roomIdLabel.textContent = `Room Id: ${roomId}`;

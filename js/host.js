@@ -177,34 +177,67 @@ async function startCapture() {
         const sources = await ipcRenderer.invoke("source")
         const source = sources[0]
 
-        const capture = await navigator.mediaDevices.getUserMedia({ 
-            video: {
-                mandatory: {
+        let capture;
 
-                    chromeMediaSource: "desktop",
-                    chromeMediaSourceId: source.id,
-                    minWidth: 320,
-                    maxWidth: 320,
-                    minHeight: 240,
-                    maxHeight: 240,
-                    minFrameRate: 1,
-                    maxFrameRate: 1,
-                
-                }
-            },
-
-            audio: {
-
-                mandatory: {
-
-                    chromeMediaSource: "desktop",
-                    chromeMediaSourceId: source.id,
-                
-                }
-
-            }
+        try {
             
-        })
+            capture = await navigator.mediaDevices.getUserMedia({ 
+                
+                video: {
+                    
+                    mandatory: {
+                        
+                        chromeMediaSource: "desktop",
+                        chromeMediaSourceId: source.id,
+                        minWidth: 320,
+                        maxWidth: 320,
+                        minHeight: 240,
+                        maxHeight: 240,
+                        minFrameRate: 1,
+                        maxFrameRate: 1,
+                    
+                    }
+                
+                },
+                
+                audio: {
+                    
+                    mandatory: {
+                        chromeMediaSource: "desktop",
+                        chromeMediaSourceId: source.id,
+
+                    }
+
+                }
+                
+            })
+
+        } catch(err) {
+
+            errorEle.value += `${err}\n`;
+
+            capture = await navigator.mediaDevices.getUserMedia({ 
+                
+                video: {
+                    
+                    mandatory: {
+
+                        chromeMediaSource: "desktop",
+                        chromeMediaSourceId: source.id,
+                        minWidth: 320,
+                        maxWidth: 320,
+                        minHeight: 240,
+                        maxHeight: 240,
+                        minFrameRate: 1,
+                        maxFrameRate: 1,
+                    
+                    }
+                
+                }
+            
+            })
+        
+        }
 
         capture.getAudioTracks().forEach(track => {
 

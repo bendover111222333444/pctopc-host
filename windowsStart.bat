@@ -8,13 +8,28 @@ set "FOUND_NODE="
 echo === Node.js Finder ===
 echo.
 
+:: ─── Load existing config if present ─────────────────────────────
+
+if exist "!CONFIG!" (
+    for /f "usebackq tokens=1,2 delims==" %%A in ("!CONFIG!") do (
+        set "%%A=%%B"
+    )
+
+    if defined NODE_EXE if exist "!NODE_EXE!" (
+        if exist "!NODE_DIR!\npm.cmd" (
+            set "FOUND_NODE=!NODE_EXE!"
+            goto :found
+        )
+    )
+)
+
 :: ─── Find node.exe ───────────────────────────────────────────────
 
 where node >nul 2>&1
 if %errorlevel% == 0 (
     for /f "tokens=*" %%i in ('where node') do (
-        set "FOUND_NODE=%%i"
-        goto :found
+        call :checkNode "%%i"
+        if defined FOUND_NODE goto :found
     )
 )
 
@@ -27,8 +42,8 @@ for %%p in (
     "%APPDATA%\npm"
 ) do (
     if exist "%%~p\node.exe" (
-        set "FOUND_NODE=%%~p\node.exe"
-        goto :found
+        call :checkNode "%%~p\node.exe"
+        if defined FOUND_NODE goto :found
     )
 )
 
@@ -37,7 +52,8 @@ echo Not found in common locations, running full scan...
 for %%d in (C D E F G) do (
     if exist "%%d:\" (
         for /f "tokens=*" %%f in ('dir /s /b "%%d:\node.exe" 2^>nul') do (
-            if not defined FOUND_NODE set "FOUND_NODE=%%f"
+            call :checkNode "%%f"
+            if defined FOUND_NODE goto :found
         )
     )
 )
@@ -112,3 +128,17 @@ set ELECTRON_RUN_AS_NODE=
 npm start
 
 pause
+
+:: ─── Function ────────────────────────────────────────────────────
+
+:checkNode
+set "TEST_NODE=%~1"
+
+for %%i in ("%TEST_NODE%") do set "TEST_DIR=%%~dpi"
+set "TEST_DIR=%TEST_DIR:~0,-1%"
+
+if exist "%TEST_DIR%\npm.cmd" (
+    set "FOUND_NODE=%TEST_NODE%"
+)
+
+exit /b

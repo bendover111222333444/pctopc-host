@@ -38,6 +38,7 @@ let tcpServer;
 
 let xSizeSetting;
 let ySizeSetting;
+let closeNow = false;
 
 const createWindow = () => {
     
@@ -266,21 +267,25 @@ app.whenReady().then(() => {
 
   hostingWindow.on('close', (event) => {
 
-    event.preventDefault();
-
-    const choice = dialog.showMessageBoxSync(hostingWindow, {
+    if (closeNow === false) {
       
-      type: 'question',
-      buttons: ['Yes', 'Cancel'],
-      title: 'Confirm',
-      message: 'Are you sure you want to quit?'
+        event.preventDefault();
     
-    });
-
-    if (choice === 0) {
-
-      hostingWindow.destroy();
+        const choice = dialog.showMessageBoxSync(hostingWindow, {
+          
+          type: 'question',
+          buttons: ['Yes', 'Cancel'],
+          title: 'Confirm',
+          message: 'Are you sure you want to quit?'
+        
+        });
     
+        if (choice === 0) {
+    
+          hostingWindow.destroy();
+        
+        }
+
     }
 
   });
@@ -351,7 +356,8 @@ app.whenReady().then(() => {
   });
 
   globalShortcut.register("CommandOrControl+N", () => {
-    
+
+    closeNow = true;
     app.quit();
 
   });

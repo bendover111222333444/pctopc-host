@@ -17,7 +17,7 @@ const errorClearTime = 300_000; // ms
 const sendChunkSize = 16_384 // 16KB
 const maxBufferSize = 5_000_000 // number?
 const iceTimeOut = 5_000; // ms
-//const selfPingTime = 600_000; // ms
+const selfPingTime = 600_000; // ms
 
 const originalRoomIdText = "Room Id: Start a session"
 
@@ -36,7 +36,7 @@ let screenData;
 let tcpSocket;
 let pConn;
 let roomId;
-//let pingInterval;
+let pingInterval;
 
 let config = {
 
@@ -515,11 +515,11 @@ async function startCapture() {
 
         }
 
-        //pingInterval = setInterval(() => {
+        pingInterval = setInterval(() => {
             
-            //fetch(`https://${signalingWorker}`)
+            fetch(`https://${signalingWorker}`)
         
-        //}, selfPingTime)
+        }, selfPingTime)
 
     } catch (err) {
 
@@ -542,8 +542,8 @@ async function stopCapture() {
 
     if (tcpSocket) { tcpSocket.destroy(); tcpSocket = null }
 
-    //clearInterval(pingInterval);
-    //pingInterval = null;
+    clearInterval(pingInterval);
+    pingInterval = null;
 
     await ipcRenderer.invoke('stop-capture')
     buffer = Buffer.alloc(0)

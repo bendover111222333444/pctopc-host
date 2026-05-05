@@ -7,10 +7,33 @@ FOUND_NODE=""
 echo "=== Node.js Finder ==="
 echo ""
 
+# ─── Load config first ────────────────────────────────────────
+
+if [ -f "$CONFIG" ]; then
+    while IFS='=' read -r key value; do
+        case "$key" in
+            NODE_EXE) FOUND_NODE="$value" ;;
+            NODE_DIR) NODE_DIR="$value" ;;
+        esac
+    done < "$CONFIG"
+
+    if [ -n "$FOUND_NODE" ] && [ -f "$FOUND_NODE" ]; then
+        if [ -f "$(dirname "$FOUND_NODE")/npm" ] || command -v npm &>/dev/null; then
+            echo "Using cached Node from config"
+        else
+            FOUND_NODE=""
+        fi
+    else
+        FOUND_NODE=""
+    fi
+fi
+
 # ─── Find node ───────────────────────────────────────────────
 
-if command -v node &>/dev/null; then
-    FOUND_NODE="$(command -v node)"
+if [ -z "$FOUND_NODE" ]; then
+    if command -v node &>/dev/null; then
+        FOUND_NODE="$(command -v node)"
+    fi
 fi
 
 if [ -z "$FOUND_NODE" ]; then
@@ -32,7 +55,14 @@ fi
 
 if [ -z "$FOUND_NODE" ]; then
     echo "Not found in common locations, running full scan..."
-    FOUND_NODE="$(find / -name "node" -type f 2>/dev/null | head -1)"
+    for dir in /usr /opt /home "$HOME"; do
+        while IFS= read -r match; do
+            if [ -f "$match" ]; then
+                FOUND_NODE="$match"
+                break 2
+            fi
+        done < <(find "$dir" -name "node" -type f 2>/dev/null)
+    done
 fi
 
 if [ -z "$FOUND_NODE" ]; then

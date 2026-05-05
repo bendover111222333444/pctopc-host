@@ -514,8 +514,6 @@ async function startCapture() {
             }
 
         }
-
-        fetch(`https://${signalingWorker}`)
         
         pingInterval = setInterval(() => {
             

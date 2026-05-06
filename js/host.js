@@ -5,6 +5,7 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const copyBtn = document.getElementById("copyBtn");
 const scaleBtn = document.getElementById("scaleBtn");
+const bitrateBtn = document.getElementById("bitrateBtn");
 const fpsBtn = document.getElementById("fpsBtn");
 const roomIdLabel = document.getElementById("roomIdLabel");
 const activeLabel = document.getElementById("activeLabel");
@@ -12,8 +13,9 @@ const errorEle = document.getElementById("errorBox");
 const xScaleInput = document.getElementById("xScaleInput");
 const yScaleInput = document.getElementById("yScaleInput");
 const fpsInput = document.getElementById("fpsInput");
+const bitrateInput = document.getElementById("bitrateInput")
 
-const errorClearTime = 300_000; // ms
+const errorClearTime = 300_000_000; // ms
 const sendChunkSize = 16_384 // 16KB
 const maxBufferSize = 5_000_000 // number?
 const iceTimeOut = 5_000; // ms
@@ -24,7 +26,7 @@ const originalRoomIdText = "Room Id: Start a session"
 const signalingWorker = "signaling.bendover111222333444.great-site.net" // change this to your own if you are forking or it wont work
 
 let started = false;
-let remoteDescSet = false
+let remoteDescSet = false;
 
 let iceCandidateQueue = []
 
@@ -32,6 +34,7 @@ let buffer = Buffer.alloc(0)
 let serverSocket;
 let inputChannel;
 let videoChannel;
+let previewDecoder;
 let screenData;
 let tcpSocket;
 let pConn;
@@ -75,12 +78,15 @@ async function generateCreds() {
 
     await generateCreds();
     screenData = await ipcRenderer.invoke("screen-size");
+    useGpu = await ipcRenderer.invoke("getIsNvidia")
+    gpuBtn.textContent = `Using: ${useGpu ? 'GPU' : 'CPU'}`
 
 })();
 
 ipcRenderer.on('tcp-port', (event, port) => {
 
     tcpSocket = net.createConnection(port, '127.0.0.1')
+    tcpSocket.setNoDelay(true)
 
     buffer = Buffer.alloc(0)
 
@@ -168,7 +174,12 @@ async function startCapture() {
         };
 
         serverSocket.onerror = (err) => errorEle.value += `WS Error: ${JSON.stringify(err)}\n`
-        serverSocket.onclose = (err) => errorEle.value += `WS Closed: ${err.code} ${err.reason}\n`
+        serverSocket.onclose = async (err) => {
+            
+            errorEle.value += `WS Closed: ${err.code} ${err.reason}\n`
+            await stopCapture()
+        
+        }
 
         activeLabel.textContent = "Connected: 🟠 Opened Server Awaiting Connection"
 
@@ -328,7 +339,13 @@ async function startCapture() {
                     remoteDescSet = true
 
                     for (const cand of iceCandidateQueue) {
-                        try { await pConn.addIceCandidate(cand) } catch(e) {}
+
+                        try {
+                            
+                            await pConn.addIceCandidate(cand) 
+                        
+                        } catch(err) {}
+
                     }
                     
                     iceCandidateQueue = []
@@ -338,8 +355,10 @@ async function startCapture() {
                     if (remoteDescSet) {
 
                         try {
+
                             await pConn.addIceCandidate(data.actualData)
-                        } catch(e) {}
+                        
+                        } catch(err) {}
 
                     } else {
 
@@ -604,35 +623,75 @@ copyBtn.addEventListener("click", () => {
 
 scaleBtn.addEventListener("click", async () => {
 
-    if (xScaleInput.value !== "" && yScaleInput.value !== "") {
+    if (remoteDescSet === true) {
 
-        await ipcRenderer.invoke("changeScale", Number(xScaleInput.value), Number(yScaleInput.value));
+        if (xScaleInput.value !== "" && yScaleInput.value !== "") {
 
+            await ipcRenderer.invoke("changeScale", Number(xScaleInput.value), Number(yScaleInput.value));
+
+        } else {
+
+            errorEle.value += "Cannot accept empty field\n";
+
+        }
+
+        xScaleInput.value = ""
+        yScaleInput.value = ""
+    
     } else {
 
-        errorEle.value += "Cannot accept empty field\n";
+        errorEle.value += "Has not connected cannot change scale\n";
 
     }
 
-    xScaleInput.value = ""
-    yScaleInput.value = ""
 
 })
 
 fpsBtn.addEventListener("click", async () => {
 
-    if (fpsInput.value !== "") {
+    if (remoteDescSet === true) {
 
-        await ipcRenderer.invoke("changeFps", Number(fpsInput.value));
+        if (fpsInput.value !== "") {
+
+            await ipcRenderer.invoke("changeFps", Number(fpsInput.value));
+
+        } else {
+
+            errorEle.value += "Cannot accept empty field\n";
+
+        }
+
+        fpsInput.value = ""
 
     } else {
 
-        errorEle.value += "Cannot accept empty field\n";
+        errorEle.value += "Has not connected cannot change fps\n";
 
     }
 
-    fpsInput.value = ""
+})
 
+bitrateBtn.addEventListener("click", async () => {
+
+    if (remoteDescSet === true) {
+
+        if (bitrateInput.value !== "") {
+
+            await ipcRenderer.invoke("changeBitrate", Number(bitrateInput.value))
+
+        } else {
+
+            errorEle.value += "Cannot accept empty field\n"
+
+        }
+
+        bitrateInput.value = ""
+
+    } else {
+
+        errorEle.value += "Has not connected cannot change bit rate\n";
+
+    }
 })
 
 setInterval(() => {

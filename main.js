@@ -13,21 +13,19 @@ const encoders = require('child_process').execSync(`"${ffmpegPath}" -encoders 2>
 
 const isNvidia = encoders.includes('h264_nvenc')
 const videoEncoder = isNvidia ? 'h264_nvenc' : 'libx264'
-const encoderPreset = isNvidia ? 'p1' : 'ultrafast'
 
 let screenCapArgs = [
+    '-thread_queue_size', '1',
     '-f', 'lavfi',
     '-i', isNvidia
         ? 'ddagrab=framerate=60:draw_mouse=1:0'
         : 'ddagrab=framerate=60:draw_mouse=1:0,hwdownload,format=bgra',
     '-c:v', videoEncoder,
-    '-preset', encoderPreset,
-    ...(isNvidia ? ['-tune', 'll', '-zerolatency', '1', '-rc', 'cbr'] : ['-tune', 'zerolatency', '-threads', '0']),
+    ...(isNvidia ? ['-preset', 'p1', '-tune', 'll', '-rc', 'cbr', '-b:v', '8M', '-bufsize', '8M'] : ['-preset', 'ultrafast', '-tune', 'zerolatency', '-threads', '0']),
     '-g', '60',
     '-forced-idr', '1',
     '-bf', '0',
-    '-b:v', '8M',
-    '-bufsize', '8M',
+    ...(isNvidia ? ['-delay', '0'] : []),
     '-f', 'h264',
     'pipe:1'
 ]
@@ -152,11 +150,11 @@ async function startCapture() {
 
     // debuging data only
 
-    //ffmpegProcess.stderr.on('data', (data) => {
+    ffmpegProcess.stderr.on('data', (data) => {
 
-    //  console.log('ffmpeg:', data.toString())
+      console.log('ffmpeg:', data.toString())
     
-    //})
+    })
 
     ffmpegProcess.stdout.pipe(socket)
 
@@ -190,7 +188,7 @@ async function changeScale(xSize, ySize) {
 
     if (xSize < width && ySize < height && xSize >= 2 && ySize >= 2) {
 
-      const scaleString = isNvidia ? `scale_cuda=${xSize}:${ySize}` : `scale=${xSize}:${ySize}`
+      const scaleString = isNvidia ? `hwdownload,format=bgra,scale=${xSize}:${ySize}`: `scale=${xSize}:${ySize}`
 
       const vfIndex = screenCapArgs.indexOf('-vf')
 
@@ -212,14 +210,30 @@ async function changeScale(xSize, ySize) {
 
 async function changeFps(fps) {
 
-  await stopCapture();
+    await stopCapture()
 
-  const iIndex = screenCapArgs.indexOf('-i')
+    const iIndex = screenCapArgs.indexOf('-i')
+    screenCapArgs[iIndex + 1] = screenCapArgs[iIndex + 1].replace(/framerate=\d+/, `framerate=${fps}`)
+
+    await startCapture()
     
-  screenCapArgs[iIndex + 1] = screenCapArgs[iIndex + 1].replace(/framerate=\d+/, `framerate=${fps}`)
-  screenCapArgs[screenCapArgs.indexOf('-g') + 1] = String(fps)
+}
 
-  await startCapture();
+async function changeBitrate(bitrate) {
+
+  await stopCapture()
+    
+  const bitrateStr = `${bitrate}M`
+    
+  const bvIndex = screenCapArgs.indexOf('-b:v')
+  if (bvIndex !== -1) {
+    
+    screenCapArgs[bvIndex + 1] = bitrateStr
+    screenCapArgs[screenCapArgs.indexOf('-bufsize') + 1] = bitrateStr
+  
+  }
+    
+  await startCapture()
 
 }
 
@@ -323,6 +337,13 @@ app.whenReady().then(() => {
     await changeFps(fps);
 
   })
+
+  ipcMain.handle("changeBitrate", async (event, bitrate) => {
+
+    await changeBitrate(bitrate);
+
+  })
+
 
   ipcMain.handle("source", async () => {
 

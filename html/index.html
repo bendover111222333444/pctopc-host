@@ -2,7 +2,7 @@
 <html>
   <body>
     <p>PC page</p>
-    <p>Buttons:</p>
+    <p>Start & Stop:</p>
     <label id = "roomIdLabel">Room Id: Start a session</label>
     <button id = "startBtn">Start</button>
     <button id = "stopBtn">Stop</button>
@@ -10,15 +10,18 @@
     <br>
     <label id = "activeLabel">Connected: 🔴 Stopped</label>
     <br>
-    <p>Set Send Size (Can be really benifical)</p>
+    <p>Settings</p>
     <label>X: </label>
     <input type = "number" id = "xScaleInput" placeholder="1920">
     <label>Y: </label>
     <input type = "number" id = "yScaleInput" placeholder="1080">
     <button id = "scaleBtn">Set Scale</button>
-    <p>Set fps</p>
+    <br>
     <input type="number" id = "fpsInput" placeholder="60">
     <button id = "fpsBtn">Set Fps</button>
+    <br>
+    <input id="bitrateInput" placeholder="bitrate (M)">
+    <button id="bitrateBtn">Set Bitrate</button>
     <br>
     <p>Errors:</p>
     <textarea id="errorBox" readonly></textarea>

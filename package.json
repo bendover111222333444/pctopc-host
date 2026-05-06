@@ -1,6 +1,6 @@
 {
   "name": "pctopc-host",
-  "version": "1.0.1",
+  "version": "1.0.2-alpha",
   "description": "A app using WebRTC to give remote computer access.",
   "main": "main.js",
   "type": "commonjs",

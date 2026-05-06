@@ -87,15 +87,23 @@ else
     exit 1
 fi
 
-# ─── Check node version 16+ ──────────────────────────────────
+# ─── FIXED: safe version check (NO CRASH RISK) ───────────────
 
-NODE_VERSION="$("$FOUND_NODE" --version | sed 's/v//')"
+NODE_VERSION=""
+
+if "$FOUND_NODE" --version >/dev/null 2>&1; then
+    NODE_VERSION="$("$FOUND_NODE" --version 2>/dev/null | sed 's/v//')"
+fi
+
 NODE_MAJOR="$(echo "$NODE_VERSION" | cut -d. -f1)"
 
-if [ "$NODE_MAJOR" -lt 16 ]; then
-    echo "ERROR: Node v$NODE_VERSION is too old. Version 16+ is required."
-    read -p "Press enter to exit..."
-    exit 1
+# Only enforce rule if we actually got a valid number
+if [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
+    if [ "$NODE_MAJOR" -lt 16 ]; then
+        echo "Skipping Node (too old): v$NODE_VERSION"
+        FOUND_NODE=""
+        exit 1
+    fi
 fi
 
 echo "Node v$NODE_VERSION OK"

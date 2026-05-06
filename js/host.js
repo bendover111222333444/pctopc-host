@@ -78,7 +78,6 @@ async function generateCreds() {
 
     await generateCreds();
     screenData = await ipcRenderer.invoke("screen-size");
-    useGpu = await ipcRenderer.invoke("getIsNvidia")
     gpuBtn.textContent = `Using: ${useGpu ? 'GPU' : 'CPU'}`
 
 })();
